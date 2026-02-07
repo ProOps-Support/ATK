@@ -48,7 +48,7 @@
             AlertTriangle, ArrowUpRight, ArrowDownLeft, Banknote, FileText, Printer, Camera, Upload, Save, 
             Eraser, Users, Wifi, WifiOff, Calendar, ClipboardList, LogOut, ScanBarcode, QrCode, Tag, 
             BarChart3, TrendingUp, Filter, Building2, Download, Info, Database, Bell, Shield, Server,
-            Lock, User, Key, Eye, EyeOff, ShieldCheck, ShieldAlert, Loader2
+            Lock, User, Key, Eye, EyeOff, ShieldCheck, ShieldAlert, Loader2, Rocket, MessageCircle
         } from 'https://esm.sh/lucide-react@0.303.0';
 
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -124,6 +124,7 @@
 
             const handleSubmit = (e) => {
                 e.preventDefault();
+                // Gunakan kredensial dari database, atau default jika belum ada
                 const validUser = storedCredentials?.adminUser || 'admin';
                 const validPass = storedCredentials?.adminPass || 'admin123';
 
@@ -403,7 +404,44 @@
                         </div>
                     </div>
 
-                    {/* Card 4: Kebijakan HAKI */}
+                    {/* Card 4: Iklan Jasa Developer (SMALLER TEXT) */}
+                    <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-4 rounded-xl shadow-lg border border-slate-700 text-white relative overflow-hidden">
+                        {/* Decorative BG */}
+                        <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-blue-500 rounded-full opacity-20 blur-xl"></div>
+                        
+                        <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-4">
+                            <div>
+                                <h3 className="text-xs font-bold flex items-center gap-2 text-blue-400">
+                                    <Rocket size={14}/> Jasa Pembuatan Aplikasi Web & Sistem
+                                </h3>
+                                <p className="text-slate-300 text-[10px] mt-1 leading-relaxed max-w-xl">
+                                    Membutuhkan aplikasi custom untuk bisnis Anda? Kami melayani pembuatan Sistem Inventaris, Point of Sale (POS), ERP, dan Website Profesional dengan teknologi terbaru.
+                                </p>
+                                <div className="mt-2 flex items-center gap-3 text-[9px]">
+                                    <div className="flex items-center gap-1 text-slate-400">
+                                        <Check size={10} className="text-green-400"/> <span>Custom Fitur</span>
+                                    </div>
+                                    <div className="flex items-center gap-1 text-slate-400">
+                                        <Check size={10} className="text-green-400"/> <span>Maintenance Support</span>
+                                    </div>
+                                    <div className="flex items-center gap-1 text-slate-400">
+                                        <Check size={10} className="text-green-400"/> <span>Harga Bersahabat</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex flex-col items-center gap-2 min-w-[150px]">
+                                <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Hubungi Developer</span>
+                                <div className="bg-white text-slate-900 px-3 py-1 rounded font-mono font-bold text-[10px] shadow-inner w-full text-center">
+                                    GuoKing
+                                </div>
+                                <a href="https://wa.me/6285717050604" target="_blank" rel="noreferrer" className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg font-bold text-[10px] flex items-center justify-center gap-1 w-full transition-all shadow-lg hover:shadow-green-500/20">
+                                    <MessageCircle size={12}/> 0857-1705-0604
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Card 5: Kebijakan HAKI */}
                     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                         <h3 className="font-bold text-gray-800 border-b pb-3 mb-4 flex items-center gap-2">
                             <Shield size={20} className="text-purple-600"/> Kebijakan Hak Kekayaan Intelektual (HAKI)
@@ -823,6 +861,7 @@
                                  itemsCount={items.length} 
                                  transactionsCount={transactions.length} 
                                  requestsCount={requests.length} 
+                                 onUpdateCredentials={(creds) => setStoredCredentials(prev => ({...prev, ...creds}))}
                                />
                            )}
                         </div>
