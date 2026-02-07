@@ -19,6 +19,15 @@
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none;  scrollbar-width: none; }
         
+        /* Toggle Switch */
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #3b82f6;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #3b82f6;
+        }
+        
         @media print {
             body * { visibility: hidden; }
             #print-area, #print-area * { visibility: visible; }
@@ -38,7 +47,8 @@
             LayoutDashboard, Package, ShoppingCart, History, Menu, Plus, Search, Trash2, Edit, Check, X, 
             AlertTriangle, ArrowUpRight, ArrowDownLeft, Banknote, FileText, Printer, Camera, Upload, Save, 
             Eraser, Users, Wifi, WifiOff, Calendar, ClipboardList, LogOut, ScanBarcode, QrCode, Tag, 
-            BarChart3, TrendingUp, Filter, Building2, Download, Info, Database, Bell, Shield, Server
+            BarChart3, TrendingUp, Filter, Building2, Download, Info, Database, Bell, Shield, Server,
+            Lock, User, Key, Eye, EyeOff, ShieldCheck, ShieldAlert, Loader2
         } from 'https://esm.sh/lucide-react@0.303.0';
 
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -105,31 +115,110 @@
             </div>
         );
 
+        // --- LOGIN SCREEN ---
+        const LoginScreen = ({ onLogin, storedCredentials }) => {
+            const [username, setUsername] = useState('');
+            const [password, setPassword] = useState('');
+            const [showPassword, setShowPassword] = useState(false);
+            const [error, setError] = useState('');
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                const validUser = storedCredentials?.adminUser || 'admin';
+                const validPass = storedCredentials?.adminPass || 'admin123';
+
+                if (username === validUser && password === validPass) {
+                    onLogin();
+                } else {
+                    setError('Username atau Password salah!');
+                }
+            };
+
+            return (
+                <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
+                    <div className="bg-white p-8 rounded-xl shadow-lg max-w-sm w-full border border-gray-200">
+                        <div className="text-center mb-6">
+                            <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-600">
+                                <Lock size={32} />
+                            </div>
+                            <h2 className="text-2xl font-bold text-gray-800">Login Admin</h2>
+                            <p className="text-sm text-gray-500">Sistem Inventaris ATK</p>
+                        </div>
+                        
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                                        <User size={18} />
+                                    </div>
+                                    <input 
+                                        type="text" 
+                                        className="w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                        placeholder="Masukkan username"
+                                        value={username}
+                                        onChange={(e) => setUsername(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                                        <Key size={18} />
+                                    </div>
+                                    <input 
+                                        type={showPassword ? "text" : "password"} 
+                                        className="w-full pl-10 pr-10 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                        placeholder="Masukkan password"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                    />
+                                    <button 
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                                    >
+                                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            {error && <p className="text-red-500 text-sm text-center bg-red-50 p-2 rounded">{error}</p>}
+                            
+                            <button type="submit" className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-bold hover:bg-blue-700 transition-colors shadow-md">
+                                Masuk
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            );
+        };
+
         // --- INFORMATION & SETTINGS VIEW ---
-        const InformationView = ({ db, appId, itemsCount, transactionsCount, requestsCount }) => {
+        const InformationView = ({ db, appId, itemsCount, transactionsCount, requestsCount, onUpdateCredentials }) => {
             const [waToken, setWaToken] = useState('');
             const [waGroupId, setWaGroupId] = useState('');
             const [waTarget, setWaTarget] = useState('');
             const [notifPrefs, setNotifPrefs] = useState({
-                newRequest: true,
-                stockLow: true,
-                approved: false,
-                rejected: false,
-                itemIn: false,
-                itemOut: false
+                newRequest: true, stockLow: true, approved: false, rejected: false, itemIn: false, itemOut: false
             });
+            // Admin Credentials & Privacy State
+            const [adminUser, setAdminUser] = useState('');
+            const [adminPass, setAdminPass] = useState('');
+            const [privacyMode, setPrivacyMode] = useState(true); // Default ON
+            const [showAdminPass, setShowAdminPass] = useState(false);
+            const [showWaToken, setShowWaToken] = useState(false);
+            
             const [isSaving, setIsSaving] = useState(false);
 
-            // Mock Storage Calculation
             const totalDocs = itemsCount + transactionsCount + requestsCount;
-            // Anggap 1 dokumen rata-rata 1KB + overhead, kuota free 1GB (1,000,000 KB)
             const storageUsedKB = totalDocs * 2; 
-            const storagePercent = Math.min((storageUsedKB / 500000) * 100, 100).toFixed(2); // Mock 500MB Limit visually
+            const storagePercent = Math.min((storageUsedKB / 500000) * 100, 100).toFixed(2);
 
             useEffect(() => {
                 const loadSettings = async () => {
                     try {
-                        // FIXED PATH: added 'general' as document ID to make even number of segments (6)
                         const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'general');
                         const docSnap = await getDoc(docRef);
                         if (docSnap.exists()) {
@@ -138,6 +227,13 @@
                             setWaGroupId(data.waGroupId || '');
                             setWaTarget(data.waTarget || '');
                             if (data.notifPrefs) setNotifPrefs(data.notifPrefs);
+                            setAdminUser(data.adminUser || 'admin');
+                            setAdminPass(data.adminPass || 'admin123');
+                            setPrivacyMode(data.privacyMode !== false); // Default true if undefined
+                        } else {
+                            setAdminUser('admin');
+                            setAdminPass('admin123');
+                            setPrivacyMode(true);
                         }
                     } catch (e) { console.error("Load settings error", e); }
                 };
@@ -145,12 +241,19 @@
             }, [db, appId]);
 
             const handleSave = async () => {
+                if (!adminUser || !adminPass) return alert("Username dan Password tidak boleh kosong!");
                 setIsSaving(true);
                 try {
-                    // FIXED PATH: added 'general' as document ID
                     await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'general'), {
-                        waToken, waGroupId, waTarget, notifPrefs, updatedAt: new Date().toISOString()
+                        waToken, waGroupId, waTarget, notifPrefs, 
+                        adminUser, adminPass, privacyMode,
+                        updatedAt: new Date().toISOString()
                     });
+                    
+                    if (onUpdateCredentials) {
+                        onUpdateCredentials({ adminUser, adminPass, privacyMode });
+                    }
+                    
                     alert('Pengaturan berhasil disimpan!');
                 } catch (e) {
                     alert('Gagal menyimpan pengaturan.');
@@ -189,21 +292,89 @@
                                     <span>Terpakai: {totalDocs} Dokumen (~{storageUsedKB} KB)</span>
                                     <span>{storagePercent}% Penuh</span>
                                 </div>
-                                <p className="text-xs text-gray-400 mt-1 italic">*Estimasi penggunaan berdasarkan jumlah dokumen aktif.</p>
                             </div>
                         </div>
                     </div>
 
-                    {/* Card 2: Konfigurasi Notifikasi WhatsApp */}
+                    {/* Card 2: Pengaturan Akun Admin & Privasi */}
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 border-l-4 border-l-blue-500">
+                        <h3 className="font-bold text-gray-800 border-b pb-3 mb-4 flex items-center gap-2">
+                            <Lock size={20} className="text-blue-600"/> Pengaturan Akun & Privasi
+                        </h3>
+                        
+                        {/* Privacy Toggle */}
+                        <div className="mb-6 flex items-center justify-between bg-gray-50 p-3 rounded-lg border border-gray-200">
+                            <div>
+                                <span className="font-bold text-sm block">Mode Privasi (Proteksi Login)</span>
+                                <span className="text-xs text-gray-500">{privacyMode ? 'ON: Halaman terkunci (Butuh Login)' : 'OFF: Halaman Publik (Tanpa Login)'}</span>
+                            </div>
+                            <div className="relative inline-block w-12 mr-2 align-middle select-none transition duration-200 ease-in">
+                                <input 
+                                    type="checkbox" 
+                                    name="toggle" 
+                                    id="toggle" 
+                                    checked={privacyMode}
+                                    onChange={() => setPrivacyMode(!privacyMode)}
+                                    className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
+                                />
+                                <label htmlFor="toggle" className={`toggle-label block overflow-hidden h-6 rounded-full cursor-pointer ${privacyMode ? 'bg-blue-600' : 'bg-gray-300'}`}></label>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 mb-1">Username Login</label>
+                                <div className="relative">
+                                    <input type="text" value={adminUser} onChange={e => setAdminUser(e.target.value)} className="w-full border p-2 pl-8 rounded text-sm bg-gray-50" placeholder="Username baru..." />
+                                    <User size={16} className="absolute left-2.5 top-2.5 text-gray-400"/>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 mb-1">Password Login</label>
+                                <div className="relative">
+                                    <input 
+                                        type={showAdminPass ? "text" : "password"} 
+                                        value={adminPass} 
+                                        onChange={e => setAdminPass(e.target.value)} 
+                                        className="w-full border p-2 pl-8 pr-8 rounded text-sm bg-gray-50" 
+                                        placeholder="Password baru..." 
+                                    />
+                                    <Key size={16} className="absolute left-2.5 top-2.5 text-gray-400"/>
+                                    <button 
+                                        onClick={() => setShowAdminPass(!showAdminPass)}
+                                        className="absolute right-2 top-2 text-gray-400 hover:text-gray-600"
+                                    >
+                                        {showAdminPass ? <EyeOff size={16}/> : <Eye size={16}/>}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Card 3: Konfigurasi WhatsApp */}
                     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                         <h3 className="font-bold text-gray-800 border-b pb-3 mb-4 flex items-center gap-2">
-                            <Bell size={20} className="text-green-600"/> Konfigurasi Notifikasi (WhatsApp Gateway)
+                            <Bell size={20} className="text-green-600"/> Konfigurasi Notifikasi
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="space-y-4">
                                 <div>
                                     <label className="block text-xs font-bold text-gray-500 mb-1">API Token WA Gateway</label>
-                                    <input type="password" value={waToken} onChange={e => setWaToken(e.target.value)} className="w-full border p-2 rounded text-sm" placeholder="Masukkan Token API..." />
+                                    <div className="relative">
+                                        <input 
+                                            type={showWaToken ? "text" : "password"} 
+                                            value={waToken} 
+                                            onChange={e => setWaToken(e.target.value)} 
+                                            className="w-full border p-2 rounded text-sm pr-8" 
+                                            placeholder="Masukkan Token API..." 
+                                        />
+                                        <button 
+                                            onClick={() => setShowWaToken(!showWaToken)}
+                                            className="absolute right-2 top-2 text-gray-400 hover:text-gray-600"
+                                        >
+                                            {showWaToken ? <EyeOff size={16}/> : <Eye size={16}/>}
+                                        </button>
+                                    </div>
                                 </div>
                                 <div>
                                     <label className="block text-xs font-bold text-gray-500 mb-1">ID Group WhatsApp</label>
@@ -217,26 +388,11 @@
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 mb-3">Pilih Notifikasi Aktif:</label>
                                 <div className="space-y-2">
-                                    <label className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 p-2 rounded">
-                                        <input type="checkbox" checked={notifPrefs.newRequest} onChange={() => togglePref('newRequest')} className="rounded text-blue-600"/> 
-                                        <span>Permintaan Baru (User Request)</span>
-                                    </label>
-                                    <label className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 p-2 rounded">
-                                        <input type="checkbox" checked={notifPrefs.stockLow} onChange={() => togglePref('stockLow')} className="rounded text-blue-600"/> 
-                                        <span>Peringatan Stok Menipis</span>
-                                    </label>
-                                    <label className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 p-2 rounded">
-                                        <input type="checkbox" checked={notifPrefs.approved} onChange={() => togglePref('approved')} className="rounded text-blue-600"/> 
-                                        <span>Status Disetujui (Ke Pemohon)</span>
-                                    </label>
-                                    <label className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 p-2 rounded">
-                                        <input type="checkbox" checked={notifPrefs.rejected} onChange={() => togglePref('rejected')} className="rounded text-blue-600"/> 
-                                        <span>Status Ditolak (Ke Pemohon)</span>
-                                    </label>
-                                    <label className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 p-2 rounded">
-                                        <input type="checkbox" checked={notifPrefs.itemIn} onChange={() => togglePref('itemIn')} className="rounded text-blue-600"/> 
-                                        <span>Barang Masuk (Restock)</span>
-                                    </label>
+                                    <label className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 p-2 rounded"><input type="checkbox" checked={notifPrefs.newRequest} onChange={() => togglePref('newRequest')} className="rounded text-blue-600"/> <span>Permintaan Baru</span></label>
+                                    <label className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 p-2 rounded"><input type="checkbox" checked={notifPrefs.stockLow} onChange={() => togglePref('stockLow')} className="rounded text-blue-600"/> <span>Peringatan Stok Menipis</span></label>
+                                    <label className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 p-2 rounded"><input type="checkbox" checked={notifPrefs.approved} onChange={() => togglePref('approved')} className="rounded text-blue-600"/> <span>Status Disetujui</span></label>
+                                    <label className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 p-2 rounded"><input type="checkbox" checked={notifPrefs.rejected} onChange={() => togglePref('rejected')} className="rounded text-blue-600"/> <span>Status Ditolak</span></label>
+                                    <label className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 p-2 rounded"><input type="checkbox" checked={notifPrefs.itemIn} onChange={() => togglePref('itemIn')} className="rounded text-blue-600"/> <span>Barang Masuk (Restock)</span></label>
                                 </div>
                             </div>
                         </div>
@@ -247,7 +403,7 @@
                         </div>
                     </div>
 
-                    {/* Card 3: Kebijakan HAKI */}
+                    {/* Card 4: Kebijakan HAKI */}
                     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                         <h3 className="font-bold text-gray-800 border-b pb-3 mb-4 flex items-center gap-2">
                             <Shield size={20} className="text-purple-600"/> Kebijakan Hak Kekayaan Intelektual (HAKI)
@@ -522,12 +678,18 @@
             const [activeView, setActiveView] = useState('dashboard');
             const [isSidebarOpen, setSidebarOpen] = useState(false);
             const [notification, setNotification] = useState(null);
+            
+            // Login & Privacy State
+            const [isLoggedIn, setIsLoggedIn] = useState(false);
+            const [storedCredentials, setStoredCredentials] = useState(null);
+            const [loadingSettings, setLoadingSettings] = useState(true);
 
             const showNotification = (msg, type = 'success') => {
                 setNotification({ message: msg, type });
                 setTimeout(() => setNotification(null), 3000);
             };
 
+            // Auth
             useEffect(() => {
                 const init = async () => {
                     try { await signInAnonymously(auth); } catch (e) { console.error(e); }
@@ -535,6 +697,25 @@
                 init();
                 return onAuthStateChanged(auth, setUser);
             }, []);
+            
+            // Load credentials & Privacy Mode
+            useEffect(() => {
+                 if (!user) return;
+                 const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'general');
+                 
+                 // Use snapshot listener for realtime updates to privacy mode
+                 const unsub = onSnapshot(docRef, (snap) => {
+                     setLoadingSettings(false);
+                     if(snap.exists()) {
+                         setStoredCredentials(snap.data());
+                     }
+                 }, (err) => {
+                     console.log('Settings load err', err);
+                     setLoadingSettings(false);
+                 });
+                 
+                 return () => unsub();
+            }, [user]);
 
             useEffect(() => {
                 if (!user) return;
@@ -580,6 +761,18 @@
 
             const handleReject = async (reqId) => { try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'requests', reqId), {status: 'Rejected'}); showNotification('Ditolak'); } catch(e) { showNotification('Error', 'error'); } };
 
+            // Logic: If privacyMode is OFF (false), bypass login
+            // Default privacyMode is TRUE (undefined is treated as true for security)
+            const isPrivacyOn = storedCredentials?.privacyMode !== false;
+
+            if (loadingSettings) {
+                return <div className="h-screen flex items-center justify-center bg-gray-50"><Loader2 className="animate-spin text-blue-600" size={32}/></div>;
+            }
+
+            if (isPrivacyOn && !isLoggedIn) {
+                return <LoginScreen onLogin={() => setIsLoggedIn(true)} storedCredentials={storedCredentials} />;
+            }
+
             return (
                 <div className="flex h-screen bg-gray-50 text-gray-800 font-sans overflow-hidden">
                     <aside 
@@ -612,6 +805,10 @@
                                 <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="md:hidden p-1 text-gray-600"><Menu size={24}/></button>
                                 <h2 className="text-lg font-semibold text-gray-700">Admin Panel</h2>
                             </div>
+                            <div className="flex items-center gap-3">
+                                {!isPrivacyOn && <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full font-bold flex items-center gap-1"><ShieldAlert size={12}/> Mode Publik</span>}
+                                {isLoggedIn && <button onClick={() => setIsLoggedIn(false)} className="text-gray-500 hover:text-red-600 p-2" title="Keluar"><LogOut size={20}/></button>}
+                            </div>
                         </header>
                         
                         <div className="flex-1 overflow-auto p-4 md:p-6 bg-gray-50">
@@ -620,7 +817,14 @@
                            {activeView === 'requests' && <Requests requests={requests} onApprove={handleApprove} onReject={handleReject}/>}
                            {activeView === 'report' && <ReportView transactions={transactions} items={items} requests={requests}/>}
                            {activeView === 'history' && <HistoryView transactions={transactions}/>}
-                           {activeView === 'info' && <InformationView db={db} appId={appId} itemsCount={items.length} transactionsCount={transactions.length} requestsCount={requests.length} />}
+                           {activeView === 'info' && (
+                               <InformationView 
+                                 db={db} appId={appId} 
+                                 itemsCount={items.length} 
+                                 transactionsCount={transactions.length} 
+                                 requestsCount={requests.length} 
+                               />
+                           )}
                         </div>
                         <footer className="bg-white border-t py-3 px-6 text-center text-xs text-gray-400">
                             &copy; 2026 Direktorat Operation - Dept Operational Support
