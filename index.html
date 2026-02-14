@@ -51,12 +51,13 @@
             AlertTriangle, ArrowUpRight, ArrowDownLeft, Banknote, FileText, Printer, Camera, Upload, Save, 
             Eraser, Users, Wifi, WifiOff, Calendar, ClipboardList, LogOut, ScanBarcode, QrCode, Tag, 
             BarChart3, TrendingUp, Filter, Building2, Download, Info, Database, Bell, Shield, Server,
-            Lock, User, Key, Eye, EyeOff, ShieldCheck, ShieldAlert, Loader2, Rocket, MessageCircle, FileSpreadsheet, Link as LinkIcon, RefreshCw
+            Lock, User, Key, Eye, EyeOff, ShieldCheck, ShieldAlert, Loader2, Rocket, MessageCircle, FileSpreadsheet, Link as LinkIcon, RefreshCw,
+            Image as ImageIcon, FileType, AlertOctagon
         } from 'https://esm.sh/lucide-react@0.303.0';
 
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { 
-            getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp, getDoc, setDoc, writeBatch
+            getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp, getDoc, setDoc, writeBatch, getDocs
         } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
         import { 
             getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged 
@@ -117,6 +118,154 @@
                 <div className={`p-2 rounded-lg ${color}`}>{icon}</div>
             </div>
         );
+
+        // --- PRODUCT DETAIL MODAL ---
+        const ProductDetailModal = ({ item, isOpen, onClose, onSave }) => {
+            if (!isOpen || !item) return null;
+
+            const [localData, setLocalData] = useState({
+                description: '',
+                specifications: '',
+                imageUrl: '',
+                ...item
+            });
+
+            useEffect(() => {
+                setLocalData({
+                    description: '',
+                    specifications: '',
+                    imageUrl: '',
+                    ...item
+                });
+            }, [item]);
+
+            const handleImageUpload = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    if(file.size > 500000) { // Limit 500KB for Base64 in Firestore
+                        alert("Ukuran gambar terlalu besar (Maks 500KB)");
+                        return;
+                    }
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        setLocalData(prev => ({ ...prev, imageUrl: reader.result }));
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                onSave(localData);
+            };
+
+            return (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl w-full max-w-4xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+                        {/* Header */}
+                        <div className="p-5 border-b flex justify-between items-center bg-gray-50">
+                            <div>
+                                <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                                    <Package className="text-blue-600" /> Detail Produk
+                                </h3>
+                                <p className="text-sm text-gray-500 font-mono mt-1">{localData.code} - {localData.name}</p>
+                            </div>
+                            <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
+                                <X size={24} className="text-gray-500" />
+                            </button>
+                        </div>
+
+                        {/* Body */}
+                        <div className="flex-1 overflow-y-auto p-6">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                                {/* Left Column: Image */}
+                                <div className="md:col-span-1 space-y-4">
+                                    <div className="border-2 border-dashed border-gray-300 rounded-xl h-64 flex flex-col items-center justify-center bg-gray-50 relative overflow-hidden group">
+                                        {localData.imageUrl ? (
+                                            <img src={localData.imageUrl} alt="Produk" className="w-full h-full object-contain p-2" />
+                                        ) : (
+                                            <div className="text-center text-gray-400 p-4">
+                                                <ImageIcon size={48} className="mx-auto mb-2 opacity-50"/>
+                                                <span className="text-sm">Belum ada gambar</span>
+                                            </div>
+                                        )}
+                                        
+                                        {/* Overlay Hover for Edit */}
+                                        <label className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                                            <span className="text-white font-bold text-sm bg-black/50 px-3 py-1 rounded-full flex items-center gap-2">
+                                                <Camera size={16}/> Ubah Gambar
+                                            </span>
+                                            <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+                                        </label>
+                                    </div>
+                                    <p className="text-xs text-center text-gray-400">Klik gambar untuk mengubah. Max 500KB.</p>
+                                    
+                                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                                        <h4 className="font-bold text-blue-800 text-sm mb-2">Info Stok</h4>
+                                        <div className="flex justify-between text-sm mb-1">
+                                            <span className="text-gray-600">Sisa Stok:</span>
+                                            <span className="font-bold">{localData.stock} {localData.unit}</span>
+                                        </div>
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-gray-600">Harga:</span>
+                                            <span className="font-bold text-green-600">{formatRupiah(localData.price)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Right Column: Details Form */}
+                                <div className="md:col-span-2 space-y-5">
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+                                            <FileText size={16} className="text-blue-500"/> Deskripsi Produk
+                                        </label>
+                                        <textarea 
+                                            value={localData.description || ''} 
+                                            onChange={e => setLocalData({...localData, description: e.target.value})}
+                                            className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none h-24 resize-none"
+                                            placeholder="Tambahkan detail deskripsi barang ini..."
+                                        ></textarea>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+                                            <FileType size={16} className="text-orange-500"/> Spesifikasi Teknis
+                                        </label>
+                                        <textarea 
+                                            value={localData.specifications || ''} 
+                                            onChange={e => setLocalData({...localData, specifications: e.target.value})}
+                                            className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none h-24 resize-none font-mono bg-gray-50"
+                                            placeholder="- Ukuran: ...&#10;- Bahan: ...&#10;- Warna: ..."
+                                        ></textarea>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                         <div>
+                                            <label className="text-xs font-bold text-gray-500">Nama Barang (Edit)</label>
+                                            <input value={localData.name} onChange={e => setLocalData({...localData, name: e.target.value})} className="w-full border p-2 rounded mt-1" />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-bold text-gray-500">Kategori</label>
+                                            <input value={localData.category || 'Umum'} onChange={e => setLocalData({...localData, category: e.target.value})} className="w-full border p-2 rounded mt-1" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="p-5 border-t bg-gray-50 flex justify-end gap-3">
+                            <button onClick={onClose} className="px-5 py-2 rounded-lg text-gray-600 hover:bg-gray-200 font-medium transition-colors">
+                                Batal
+                            </button>
+                            <button onClick={handleSubmit} className="px-6 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-200 flex items-center gap-2 transition-transform active:scale-95">
+                                <Save size={18} /> Simpan Perubahan
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
 
         // --- LOGIN SCREEN ---
         const LoginScreen = ({ onLogin, storedCredentials }) => {
@@ -212,6 +361,13 @@
             const [showAdminPass, setShowAdminPass] = useState(false);
             const [showWaToken, setShowWaToken] = useState(false);
             
+            // Reset Database State
+            const [showResetModal, setShowResetModal] = useState(false);
+            const [resetUser, setResetUser] = useState('');
+            const [resetPass, setResetPass] = useState('');
+            const [showResetPass, setShowResetPass] = useState(false);
+            const [isResetting, setIsResetting] = useState(false);
+            
             const [isSaving, setIsSaving] = useState(false);
 
             const totalDocs = itemsCount + transactionsCount + requestsCount;
@@ -269,8 +425,54 @@
                 setNotifPrefs(prev => ({ ...prev, [key]: !prev[key] }));
             };
 
+            // --- RESET DATABASE LOGIC ---
+            const handleResetDatabase = async (e) => {
+                e.preventDefault();
+                
+                if (resetUser !== adminUser || resetPass !== adminPass) {
+                    alert("Username atau Password salah! Verifikasi gagal.");
+                    return;
+                }
+
+                if (!confirm("APAKAH ANDA YAKIN? Semua data (Barang, Transaksi, Permintaan) akan dihapus PERMANEN. Tindakan ini tidak dapat dibatalkan!")) {
+                    return;
+                }
+
+                setIsResetting(true);
+                try {
+                    const collections = ['items', 'requests', 'transactions'];
+                    
+                    for (const colName of collections) {
+                        const q = query(collection(db, 'artifacts', appId, 'public', 'data', colName));
+                        const snapshot = await getDocs(q);
+                        const batch = writeBatch(db);
+                        let count = 0;
+                        
+                        snapshot.docs.forEach((doc) => {
+                            batch.delete(doc.ref);
+                            count++;
+                        });
+                        
+                        if (count > 0) {
+                            await batch.commit();
+                        }
+                    }
+                    
+                    alert("Database berhasil di-reset. Semua data telah dihapus.");
+                    setShowResetModal(false);
+                    setResetUser('');
+                    setResetPass('');
+                } catch (error) {
+                    console.error("Gagal reset database:", error);
+                    alert("Terjadi kesalahan saat menghapus data.");
+                } finally {
+                    setIsResetting(false);
+                }
+            };
+
             return (
                 <div className="space-y-6">
+                    {/* INFO SISTEM */}
                     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                         <h3 className="font-bold text-gray-800 border-b pb-3 mb-4 flex items-center gap-2">
                             <Info size={20} className="text-blue-600"/> Informasi Sistem
@@ -297,6 +499,7 @@
                         </div>
                     </div>
 
+                    {/* AKUN & PRIVASI */}
                     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 border-l-4 border-l-blue-500">
                         <h3 className="font-bold text-gray-800 border-b pb-3 mb-4 flex items-center gap-2">
                             <Lock size={20} className="text-blue-600"/> Pengaturan Akun & Privasi
@@ -350,6 +553,7 @@
                         </div>
                     </div>
 
+                    {/* NOTIFIKASI */}
                     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                         <h3 className="font-bold text-gray-800 border-b pb-3 mb-4 flex items-center gap-2">
                             <Bell size={20} className="text-green-600"/> Konfigurasi Notifikasi
@@ -400,6 +604,98 @@
                             </button>
                         </div>
                     </div>
+
+                    {/* DANGER ZONE: RESET DATABASE */}
+                    <div className="bg-red-50 p-6 rounded-xl shadow-sm border border-red-200">
+                        <h3 className="font-bold text-red-700 border-b border-red-200 pb-3 mb-4 flex items-center gap-2">
+                            <AlertOctagon size={20} className="text-red-600"/> Danger Zone (Area Berbahaya)
+                        </h3>
+                        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                            <div>
+                                <h4 className="font-bold text-red-800">Reset Database</h4>
+                                <p className="text-sm text-red-600 mt-1">
+                                    Tindakan ini akan <strong>MENGHAPUS SEMUA DATA</strong> (Barang, Stok, Transaksi, dan Riwayat) secara permanen. 
+                                    Data yang dihapus tidak dapat dikembalikan.
+                                </p>
+                            </div>
+                            <button 
+                                onClick={() => setShowResetModal(true)} 
+                                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 shadow-sm whitespace-nowrap"
+                            >
+                                <Trash2 size={18}/> Reset Semua Data
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* MODAL KONFIRMASI RESET */}
+                    {showResetModal && (
+                        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+                            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border-2 border-red-500">
+                                <div className="text-center mb-6">
+                                    <div className="bg-red-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600">
+                                        <AlertTriangle size={32} />
+                                    </div>
+                                    <h3 className="text-xl font-bold text-gray-800">Konfirmasi Reset Database</h3>
+                                    <p className="text-sm text-gray-500 mt-2">
+                                        Masukkan Username dan Password Admin untuk memverifikasi penghapusan data.
+                                    </p>
+                                </div>
+
+                                <form onSubmit={handleResetDatabase} className="space-y-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 mb-1">Username Admin</label>
+                                        <input 
+                                            type="text" 
+                                            value={resetUser}
+                                            onChange={e => setResetUser(e.target.value)}
+                                            className="w-full border p-2 rounded text-sm"
+                                            placeholder="Masukkan username..."
+                                            required
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 mb-1">Password Admin</label>
+                                        <div className="relative">
+                                            <input 
+                                                type={showResetPass ? "text" : "password"} 
+                                                value={resetPass}
+                                                onChange={e => setResetPass(e.target.value)}
+                                                className="w-full border p-2 rounded text-sm pr-10"
+                                                placeholder="Masukkan password..."
+                                                required
+                                            />
+                                            <button 
+                                                type="button"
+                                                onClick={() => setShowResetPass(!showResetPass)}
+                                                className="absolute right-2 top-2 text-gray-400 hover:text-gray-600"
+                                            >
+                                                {showResetPass ? <EyeOff size={16}/> : <Eye size={16}/>}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-3 mt-6">
+                                        <button 
+                                            type="button" 
+                                            onClick={() => { setShowResetModal(false); setResetUser(''); setResetPass(''); }}
+                                            className="flex-1 py-2 rounded-lg bg-gray-100 text-gray-700 font-bold hover:bg-gray-200 transition"
+                                        >
+                                            Batal
+                                        </button>
+                                        <button 
+                                            type="submit" 
+                                            disabled={isResetting}
+                                            className="flex-1 py-2 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700 transition flex items-center justify-center gap-2 disabled:opacity-50"
+                                        >
+                                            {isResetting ? <RefreshCw className="animate-spin" size={16}/> : <Trash2 size={16}/>}
+                                            {isResetting ? 'Menghapus...' : 'HAPUS SEMUA'}
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
                 </div>
             );
         };
@@ -408,6 +704,10 @@
         const Inventory = ({ items, onAdd, onUpdate, onDelete }) => {
             const [isModalOpen, setModalOpen] = useState(false);
             const [isImportOpen, setIsImportOpen] = useState(false);
+            
+            // Detail Modal State
+            const [detailItem, setDetailItem] = useState(null);
+            
             const [editingItem, setEditingItem] = useState(null);
             const [formData, setFormData] = useState({ code: '', name: '', stock: 0, unit: 'Pcs', price: 0 });
 
@@ -426,6 +726,17 @@
                     setFormData({ code: `BRG-${Date.now().toString().slice(-6)}`, name: '', stock: 0, unit: 'Pcs', price: 0 });
                 }
                 setModalOpen(true);
+            };
+            
+            // NEW: Handle opening detail modal
+            const handleOpenDetail = (item) => {
+                setDetailItem(item);
+            };
+
+            // NEW: Save from Detail Modal
+            const handleSaveDetail = async (updatedItem) => {
+                await onUpdate(updatedItem);
+                setDetailItem(null);
             };
 
             const handleSubmit = (e) => {
@@ -537,24 +848,44 @@
                             <tbody>
                                 {items.length === 0 ? <tr><td colSpan="6" className="p-4 text-center text-gray-400">Data kosong. Tambahkan barang.</td></tr> : items.map(item => (
                                     <tr key={item.id} className="border-b hover:bg-gray-50">
-                                        <td className="p-3 font-mono text-blue-600 font-medium">{item.code || '-'}</td>
-                                        <td className="p-3 font-medium">{item.name}</td>
+                                        <td 
+                                            onClick={() => handleOpenDetail(item)} 
+                                            className="p-3 font-mono text-blue-600 font-medium cursor-pointer hover:underline hover:text-blue-800"
+                                            title="Klik untuk detail & gambar"
+                                        >
+                                            {item.code || '-'}
+                                        </td>
+                                        <td className="p-3 font-medium">
+                                            {item.imageUrl && <ImageIcon size={14} className="inline mr-2 text-gray-400"/>}
+                                            {item.name}
+                                        </td>
                                         <td className="p-3"><span className={`font-bold ${item.stock <= (item.minStock || 5) ? 'text-red-600' : 'text-gray-700'}`}>{item.stock}</span></td>
                                         <td className="p-3 text-gray-500">{item.unit}</td>
                                         <td className="p-3 text-blue-600">{formatRupiah(item.price)}</td>
                                         <td className="p-3 text-right flex justify-end gap-2">
-                                            <button onClick={() => handleOpenModal(item)} className="text-blue-500 bg-blue-50 p-1.5 rounded hover:bg-blue-100 transition"><Edit size={16} /></button>
-                                            <button onClick={() => onDelete(item.id)} className="text-red-500 bg-red-50 p-1.5 rounded hover:bg-red-100 transition"><Trash2 size={16} /></button>
+                                            <button onClick={() => handleOpenDetail(item)} className="text-gray-500 bg-gray-50 p-1.5 rounded hover:bg-gray-200 transition" title="Detail"><Info size={16}/></button>
+                                            <button onClick={() => handleOpenModal(item)} className="text-blue-500 bg-blue-50 p-1.5 rounded hover:bg-blue-100 transition" title="Edit Cepat"><Edit size={16} /></button>
+                                            <button onClick={() => onDelete(item.id)} className="text-red-500 bg-red-50 p-1.5 rounded hover:bg-red-100 transition" title="Hapus"><Trash2 size={16} /></button>
                                         </td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
                     </div>
+
+                    {/* DETAIL MODAL */}
+                    <ProductDetailModal 
+                        item={detailItem} 
+                        isOpen={!!detailItem} 
+                        onClose={() => setDetailItem(null)} 
+                        onSave={handleSaveDetail}
+                    />
+
+                    {/* EDIT/ADD MODAL (QUICK) */}
                     {isModalOpen && (
                         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                             <div className="bg-white p-6 rounded-xl w-full max-w-sm shadow-2xl">
-                                <h3 className="font-bold mb-4 flex items-center gap-2">{editingItem ? <Edit size={20} className="text-blue-600"/> : <Plus size={20} className="text-blue-600"/>} {editingItem ? 'Edit Barang' : 'Tambah Barang'}</h3>
+                                <h3 className="font-bold mb-4 flex items-center gap-2">{editingItem ? <Edit size={20} className="text-blue-600"/> : <Plus size={20} className="text-blue-600"/>} {editingItem ? 'Edit Barang (Cepat)' : 'Tambah Barang'}</h3>
                                 <form onSubmit={handleSubmit} className="space-y-3">
                                     <div><label className="text-xs font-bold text-gray-500">Kode</label><div className="relative"><input value={formData.code} onChange={e => setFormData({...formData, code: e.target.value})} className="w-full border p-2 pl-8 rounded uppercase font-mono" required/><ScanBarcode className="absolute left-2 top-2 text-gray-400" size={16}/></div></div>
                                     <div><label className="text-xs font-bold text-gray-500">Nama</label><input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full border p-2 rounded" required /></div>
@@ -650,15 +981,67 @@
         };
 
         // --- ADMIN DASHBOARD ---
-        const Dashboard = ({ items, requests, transactions }) => {
+        const Dashboard = ({ items, requests, transactions, onApprove, onReject }) => {
             const lowStockItems = items.filter(i => i.stock <= i.minStock);
+            const pendingRequests = requests.filter(r => r.status === 'Pending');
+
             return (
                 <div className="space-y-6">
+                    {/* Stats */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <StatCard title="Total Item" value={items.length} icon={<Package className="text-blue-600" />} color="bg-blue-50" />
                         <StatCard title="Stok Menipis" value={lowStockItems.length} icon={<AlertTriangle className="text-orange-600" />} color="bg-orange-50" isWarning={true} />
                         <StatCard title="Total Transaksi" value={transactions.length} icon={<History className="text-purple-600" />} color="bg-purple-50" />
-                        <StatCard title="Permintaan Pending" value={requests.filter(r => r.status === 'Pending').length} icon={<ShoppingCart className="text-indigo-600" />} color="bg-indigo-50" />
+                        <StatCard title="Permintaan Pending" value={pendingRequests.length} icon={<ShoppingCart className="text-indigo-600" />} color="bg-indigo-50" />
+                    </div>
+
+                    {/* Requests Section */}
+                    <div className="bg-white p-6 rounded-xl shadow-sm border">
+                        <div className="flex justify-between items-center border-b pb-4 mb-4">
+                            <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                                <ShoppingCart size={20} className="text-blue-600"/> Permintaan Barang Masuk
+                            </h3>
+                            <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded-full">{pendingRequests.length} Pending</span>
+                        </div>
+                        
+                        <div className="space-y-4">
+                            {pendingRequests.length === 0 ? (
+                                <p className="text-gray-400 text-center py-8">Tidak ada permintaan baru saat ini.</p>
+                            ) : (
+                                pendingRequests.map(req => (
+                                    <div key={req.id} className="bg-gray-50 p-4 rounded-lg border border-gray-200 hover:border-blue-300 transition-colors">
+                                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="font-bold text-gray-800">{req.userName}</p>
+                                                    <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">{req.department}</span>
+                                                </div>
+                                                <p className="text-xs text-gray-500 mt-1">{new Date(req.createdAt || req.date).toLocaleDateString('id-ID')} - {new Date(req.createdAt || req.date).toLocaleTimeString('id-ID')}</p>
+                                                <div className="mt-3 bg-white p-3 rounded border">
+                                                    <ul className="text-sm space-y-1">
+                                                        {req.items && req.items.map((i,idx) => (
+                                                            <li key={idx} className="flex items-center gap-2">
+                                                                <span className="font-mono text-xs bg-gray-100 px-1 rounded">{i.code}</span>
+                                                                <span className="flex-1">{i.name}</span>
+                                                                <span className="font-bold">x{i.qty}</span>
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-2 w-full md:w-auto">
+                                                <button onClick={() => onReject(req.id)} className="flex-1 md:flex-none border border-red-200 text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                                                    Tolak
+                                                </button>
+                                                <button onClick={() => onApprove(req.id)} className="flex-1 md:flex-none bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition-colors">
+                                                    Setujui
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
                     </div>
                 </div>
             );
@@ -780,27 +1163,6 @@
                 </div>
             );
         };
-
-        // --- ADMIN REQUESTS ---
-        const Requests = ({ requests, onApprove, onReject }) => (
-          <div className="space-y-4">
-            {requests.filter(r => r.status === 'Pending').length === 0 ? <p className="text-gray-400">Tidak ada data baru</p> : 
-            requests.filter(r => r.status === 'Pending').map(req => (
-               <div key={req.id} className="bg-white p-4 rounded shadow border-l-4 border-blue-400">
-                  <div className="flex justify-between items-start">
-                     <div>
-                        <p className="font-bold">{req.userName} <span className="font-normal text-gray-500">({req.department})</span></p>
-                        <ul className="text-sm list-disc pl-4 mt-1">{req.items && req.items.map((i,idx) => <li key={idx}>[{i.code}] {i.name} x{i.qty}</li>)}</ul>
-                     </div>
-                     <div className="flex gap-2">
-                        <button onClick={() => onReject(req.id)} className="text-red-500 border border-red-200 px-3 py-1 rounded text-sm">Tolak</button>
-                        <button onClick={() => onApprove(req.id)} className="bg-blue-600 text-white px-3 py-1 rounded text-sm">Setujui</button>
-                     </div>
-                  </div>
-               </div>
-            ))}
-          </div>
-        );
 
         // --- ADMIN HISTORY (UPDATED) ---
         const HistoryView = ({ transactions, items }) => {
@@ -937,13 +1299,13 @@
                             qty: item.stock, 
                             price: item.price, // Save price for history
                             requester: 'Initial Stock / Migration'
-                         });
+                          });
                     }
                     showNotification('Tersimpan');
                 } catch (e) { showNotification('Gagal', 'error'); }
             };
 
-            const handleUpdateItem = async (item) => { try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'items', item.id), item); showNotification('Updated'); } catch (e) { showNotification('Gagal', 'error'); } };
+            const handleUpdateItem = async (item) => { try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'items', item.id), item); showNotification('Data Diperbarui'); } catch (e) { showNotification('Gagal', 'error'); } };
             const handleDeleteItem = async (id) => { if(confirm('Hapus?')) try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'items', id)); showNotification('Terhapus'); } catch (e) { showNotification('Gagal', 'error'); } };
             
             const handleApprove = async (reqId) => {
@@ -999,7 +1361,7 @@
                         <nav className="flex-1 py-6 space-y-1 overflow-y-auto no-scrollbar">
                             <NavItem icon={<LayoutDashboard size={20}/>} label="Dashboard" isActive={activeView==='dashboard'} onClick={()=>{setActiveView('dashboard');setSidebarOpen(false)}} isOpen={isSidebarOpen}/>
                             <NavItem icon={<Package size={20}/>} label="Stok Barang" isActive={activeView==='inventory'} onClick={()=>{setActiveView('inventory');setSidebarOpen(false)}} isOpen={isSidebarOpen}/>
-                            <NavItem icon={<ShoppingCart size={20}/>} label="Permintaan" isActive={activeView==='requests'} onClick={()=>{setActiveView('requests');setSidebarOpen(false)}} isOpen={isSidebarOpen} count={requests.filter(r=>r.status==='Pending').length}/>
+                            {/* Menu Permintaan Dihilangkan dari Navigasi */}
                             <NavItem icon={<BarChart3 size={20}/>} label="Laporan" isActive={activeView==='report'} onClick={()=>{setActiveView('report');setSidebarOpen(false)}} isOpen={isSidebarOpen}/>
                             <NavItem icon={<History size={20}/>} label="Riwayat" isActive={activeView==='history'} onClick={()=>{setActiveView('history');setSidebarOpen(false)}} isOpen={isSidebarOpen}/>
                             <NavItem icon={<Info size={20}/>} label="Informasi" isActive={activeView==='info'} onClick={()=>{setActiveView('info');setSidebarOpen(false)}} isOpen={isSidebarOpen}/>
@@ -1024,9 +1386,8 @@
                         </header>
                         
                         <div className="flex-1 overflow-auto p-4 md:p-6 bg-gray-50">
-                           {activeView === 'dashboard' && <Dashboard items={items} requests={requests} transactions={transactions}/>}
+                           {activeView === 'dashboard' && <Dashboard items={items} requests={requests} transactions={transactions} onApprove={handleApprove} onReject={handleReject}/>}
                            {activeView === 'inventory' && <Inventory items={items} onAdd={handleAddItem} onUpdate={handleUpdateItem} onDelete={handleDeleteItem}/>}
-                           {activeView === 'requests' && <Requests requests={requests} onApprove={handleApprove} onReject={handleReject}/>}
                            {activeView === 'report' && <ReportView transactions={transactions} items={items} requests={requests}/>}
                            {activeView === 'history' && <HistoryView transactions={transactions} items={items} />}
                            {activeView === 'info' && (
